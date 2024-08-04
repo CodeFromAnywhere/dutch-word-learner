@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Dutch Story</title>
+    <style>
+        @media print {
+            body {
+                font-family: 'Times New Roman', Times, serif;
+                font-size: 12pt;
+                line-height: 1.5;
+                margin: 0;
+                padding: 0;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+        }
+
+        .story {
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+
+        .no-story {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .print-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .print-button:hover {
+            background-color: #2980b9;
+        }
+
+        @media screen {
+            .container {
+                border: 1px solid #ddd;
+                padding: 20px;
+                border-radius: 5px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Dutch Story</h1>
+        <div id="story-content"></div>
+        <button onclick="window.print()" class="print-button no-print">Print Story</button>
+    </div>
+
+    <script>
+        function getStoryIndex() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return parseInt(urlParams.get('storyIndex'));
+        }
+
+        function getStories() {
+            const storiesJson = localStorage.getItem('stories');
+            return storiesJson ? JSON.parse(storiesJson) : [];
+        }
+
+        function renderStory() {
+            const storyIndex = getStoryIndex();
+            const stories = getStories();
+            const storyContent = document.getElementById('story-content');
+
+            if (isNaN(storyIndex) || storyIndex < 0 || storyIndex >= stories.length) {
+                storyContent.innerHTML = '<p class="no-story">No story found for the given index.</p>';
+                return;
+            }
+
+            const story = stories[storyIndex];
+            storyContent.innerHTML = `<div class="story">${story}</div>`;
+        }
+
+        renderStory();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dutch Word Learner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://reactify-js.vercel.app"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div id="root" class="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl"></div>
+
+    <script>
+        // State management
+        const [getWords, setWords] = useState([]);
+        const [getKnownWords, setKnownWords] = useStore("knownWords", []);
+        const [getCurrentWord, setCurrentWord] = useState("");
+        const [getSessionWords, setSessionWords] = useState([]);
+        const [getApiKey, setApiKey] = useStore("apiKey", "");
+        const [getStories, setStories] = useStore("stories", []);
+        const [getSessionComplete, setSessionComplete] = useState(false);
+        const [getIsLoading, setIsLoading] = useState(false);
+
+        // Load words from JSON file
+        async function loadWords() {
+            const response = await fetch('words.json');
+            const words = await response.json();
+            setWords(words);
+        }
+
+        // Select a random word that is not known
+        function selectRandomWord() {
+            const unknownWords = getWords().filter(word => !getKnownWords().includes(word));
+            if (unknownWords.length === 0) {
+                setSessionComplete(true);
+                return;
+            }
+            const randomIndex = Math.floor(Math.random() * unknownWords.length);
+            setCurrentWord(unknownWords[randomIndex]);
+        }
+
+        // Handle word selection
+        function handleWordSelection(known) {
+            if (known) {
+                setKnownWords(prev => [...prev, getCurrentWord()]);
+                setSessionWords(prev => [...prev, getCurrentWord()]);
+            }
+            if (getSessionWords().length < 10) {
+                selectRandomWord();
+            } else {
+                setSessionComplete(true);
+            }
+        }
+
+        // Generate story
+        async function generateStory() {
+            setIsLoading(true);
+            const words = getSessionWords().join(", ");
+            const prompt = `Please make me a short Dutch story with these words: ${words}. Please ensure to not use any hard words in between, and have a lot of repetition.`;
+            try {
+                const story = await getChatCompletion(prompt);
+                setStories(prev => [...prev, story]);
+                setIsLoading(false);
+                setSessionComplete(false);
+                setSessionWords([]);
+            } catch (error) {
+                console.error('Error generating story:', error);
+                setIsLoading(false);
+            }
+        }
+
+        // Chat completion function
+        async function getChatCompletion(prompt) {
+            const apiKey = getApiKey();
+            const url = 'https://api.groq.com/openai/v1/chat/completions';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.1-70b-versatile',
+                    messages: [
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.7
+                })
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        // Components
+        const renderApiKeyInput = () => {
+            return `
+                <div class="mb-4">
+                    <label for="apiKey" class="block text-sm font-medium text-gray-700">Groq API Key:</label>
+                    <input type="text" id="apiKey" value="${getApiKey()}" 
+                           onchange="setApiKey(this.value)"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                </div>
+            `;
+        }
+
+        const renderWordSession = () => {
+            if (getSessionComplete()) {
+                return `
+                    <div class="text-center">
+                        <p class="mb-4">Session complete! You've learned 10 new words.</p>
+                        <button onclick="generateStory()" 
+                                class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+                                ${getIsLoading() ? 'disabled' : ''}>
+                            ${getIsLoading() ? 'Generating Story...' : 'Generate Story'}
+                        </button>
+                    </div>
+                `;
+            }
+            return `
+                <div class="text-center">
+                    <p class="text-2xl font-bold mb-4">${getCurrentWord()}</p>
+                    <div class="space-x-4">
+                        <button onclick="handleWordSelection(true)" 
+                                class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors">
+                            I Know This Word
+                        </button>
+                        <button onclick="handleWordSelection(false)" 
+                                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors">
+                            I Don't Know This Word
+                        </button>
+                    </div>
+                    <p class="mt-4">Words learned this session: ${getSessionWords().length} / 10</p>
+                </div>
+            `;
+        }
+
+        const renderStories = () => {
+            return `
+                <div class="mt-8">
+                    <h2 class="text-xl font-bold mb-4">Generated Stories:</h2>
+                    <ul class="space-y-4">
+                        ${getStories().map((story, index) => `
+                            <li class="bg-gray-100 p-4 rounded">
+                                <a href="print.html?storyIndex=${index}"><h3 class="font-bold mb-2">Story ${index + 1}</h3></a>
+                                <p>${story}</p>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        const renderRoot = () => {
+            return `
+                <div>
+                    <h1 class="text-3xl font-bold mb-6 text-center">Dutch Word Learner</h1>
+                    ${renderApiKeyInput()}
+                    ${renderWordSession()}
+                    ${renderStories()}
+                </div>
+            `;
+        }
+
+        // Initial load
+        loadWords().then(() => {
+            selectRandomWord();
+            reactify();
+        });
+
+        // Initial render
+        reactify();
+    </script>
+</body>
+
+</html>
